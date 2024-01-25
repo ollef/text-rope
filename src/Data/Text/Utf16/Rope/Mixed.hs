@@ -38,16 +38,19 @@ module Data.Text.Utf16.Rope.Mixed
   , utf16SplitAt
   , utf16LengthAsPosition
   , utf16SplitAtPosition
+  -- * UTF-8 code units
+  , utf8Length
+  , utf8SplitAt
   ) where
 
-import Prelude ((-), (+), seq)
+import Prelude ((-), (+), seq, (<$>), fst)
 import Control.DeepSeq (NFData, rnf)
 import Data.Bool (Bool(..), otherwise)
 import Data.Char (Char)
 import Data.Eq (Eq, (==))
 import Data.Function ((.), ($), on)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (Monoid(..))
+import Data.Monoid (Monoid(..), Sum(Sum, getSum))
 import Data.Ord (Ord, compare, (<), (<=), Ordering(..))
 import Data.Semigroup (Semigroup(..))
 import Data.String (IsString(..))
@@ -56,7 +59,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TextLazy
 import qualified Data.Text.Lazy.Builder as Builder
 import Data.Text.Lines.Internal (TextLines)
-import qualified Data.Text.Lines.Internal as TL (null, fromText, toText, lines, splitAtLine)
+import qualified Data.Text.Lines.Internal as TL (null, fromText, toText, lines, splitAtLine, wordToInt)
 import qualified Data.Text.Lines as Char
 import qualified Data.Text.Utf16.Lines as Utf16
 import Data.Word (Word)
@@ -489,3 +492,25 @@ utf16SplitAtPosition !len = \case
       llc = ll <> lc
       len' = utf16SubOnRope l len ll
       len'' = utf16SubOnLines c len' lc
+
+-- | Length in UTF-8 code units, O(n).
+utf8Length :: Rope -> Word
+utf8Length = getSum . foldMapRope (Sum . Char.utf8Length)
+
+utf8SplitAt :: Word -> Rope -> Maybe (Rope, Rope)
+utf8SplitAt n0 rp = fst <$> go n0 rp
+  where
+    go n Empty = Just ((Empty, Empty), n)
+    go n (Node l c r _ _ _ _) = do
+      ((l1, l2), n') <- go n l
+      case () of
+        _ | n' == 0  -> Just ((l1, (l2 |> c) <> r), 0)
+          | n' <= lc -> do
+            (c1, c2) <- Char.utf8SplitAt n' c
+            Just ((l |> c1, c2 <| r), 0)
+          | otherwise -> do
+            let n'' = n' - lc
+            ((r1, r2), n''') <- go n'' r
+            Just (((l |> c) <> r1, r2), n''')
+      where
+        lc = Char.utf8Length c

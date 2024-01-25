@@ -8,9 +8,10 @@ module CharLines
   ) where
 
 import Prelude (fromIntegral, maxBound, (-))
-import Data.Bool ((||), not, (&&))
+import Data.Bool ((||), not, (&&), Bool(..))
 import Data.Function (($))
 import qualified Data.List as L
+import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty, mconcat)
 import Data.Ord (min, (>=), (<))
 import Data.Semigroup ((<>), stimes, stimesMonoid)
@@ -19,7 +20,7 @@ import Data.Text.Lines
 import Data.Tuple (snd)
 import Data.Word (Word)
 import Test.Tasty (testGroup, TestTree)
-import Test.Tasty.QuickCheck (Small(..), testProperty, (===), applyFun, (.||.), (.&&.), (==>))
+import Test.Tasty.QuickCheck (Small(..), testProperty, (===), applyFun, (.||.), (.&&.), (==>), property)
 
 import Utils ()
 
@@ -102,4 +103,13 @@ testSuite = testGroup "Char Lines"
       null z .||. length (snd (splitAtLine l y)) === c
   , testProperty "splitAtPosition 5" $
     \i -> let (y, z) = splitAtPosition i mempty in y === mempty .&&. z === mempty
+
+  , testProperty "utf8SplitAt 1" $
+    \i x -> case utf8SplitAt i x of
+      Just (y, z) -> x === y <> z
+      Nothing -> property True
+  , testProperty "utf8SplitAt 2" $
+    \i x -> case utf8SplitAt i x of
+      Just (y, _) -> utf8Length y === min i (utf8Length x)
+      Nothing -> property True
   ]

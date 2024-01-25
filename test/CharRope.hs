@@ -8,12 +8,14 @@ module CharRope
   ) where
 
 import Prelude ()
+import Data.Bool (Bool(..))
 import Data.Function (($))
+import Data.Maybe (Maybe(..))
 import Data.Semigroup ((<>))
 import qualified Data.Text.Lines as Lines
 import qualified Data.Text.Rope as Rope
 import Test.Tasty (testGroup, TestTree)
-import Test.Tasty.QuickCheck (testProperty, (===), (.&&.))
+import Test.Tasty.QuickCheck (testProperty, (===), (.&&.), counterexample, property)
 
 import Utils ()
 
@@ -48,4 +50,15 @@ testSuite = testGroup "Char Rope"
   , testProperty "splitAtPosition 2" $
     \i x -> case (Rope.splitAtPosition i x, Lines.splitAtPosition i (Lines.fromText $ Rope.toText x)) of
       ((y, z), (y', z')) -> Lines.fromText (Rope.toText y) === y' .&&. Lines.fromText (Rope.toText z) === z'
+
+  , testProperty "utf8SplitAt 1" $
+    \i x -> case Rope.utf8SplitAt i x of
+      Just (y, z) -> x === y <> z
+      Nothing -> property True
+  , testProperty "utf8SplitAt 2" $
+    \i x -> case (Rope.utf8SplitAt i x, Lines.utf8SplitAt i (Lines.fromText $ Rope.toText x)) of
+      (Nothing, Nothing) -> property True
+      (Nothing, Just{}) -> counterexample "can split TextLines, but not Rope" False
+      (Just{}, Nothing) -> counterexample "can split Rope, but not TextLines" False
+      (Just (y, z), Just (y', z')) -> Lines.fromText (Rope.toText y) === y' .&&. Lines.fromText (Rope.toText z) === z'
   ]

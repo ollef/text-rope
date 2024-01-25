@@ -83,4 +83,15 @@ testSuite = testGroup "Utf16 Mixed"
     \i x -> case Mixed.utf16SplitAtPosition i x of
       Just{} -> True
       Nothing -> isJust (Mixed.utf16SplitAtPosition (i <> Utf16.Position 0 1) x)
+
+  , testProperty "utf8SplitAt 1" $
+    \i x -> case Mixed.utf8SplitAt i x of
+      Nothing -> property True
+      Just (y, z) -> x === y <> z
+  , testProperty "utf8SplitAt 2" $
+    \i x -> case (Mixed.utf8SplitAt i x, Utf16.utf8SplitAt i (Utf16.fromText $ Mixed.toText x)) of
+      (Nothing, Nothing) -> property True
+      (Nothing, Just{}) -> counterexample "can split TextLines, but not Mixed" False
+      (Just{}, Nothing) -> counterexample "can split Mixed, but not TextLines" False
+      (Just (y, z), Just (y', z')) -> Utf16.fromText (Mixed.toText y) === y' .&&. Utf16.fromText (Mixed.toText z) === z'
   ]

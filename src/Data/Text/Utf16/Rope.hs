@@ -34,16 +34,19 @@ module Data.Text.Utf16.Rope
   , Position(..)
   , lengthAsPosition
   , splitAtPosition
+  -- * UTF-8 code units
+  , utf8Length
+  , utf8SplitAt
   ) where
 
-import Prelude ((-), (+), seq)
+import Prelude ((-), (+), seq, (<$>), fst)
 import Control.DeepSeq (NFData, rnf)
 import Data.Bool (Bool(..), otherwise)
 import Data.Char (Char)
 import Data.Eq (Eq, (==))
 import Data.Function ((.), ($), on)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (Monoid(..))
+import Data.Monoid (Monoid(..), Sum(Sum, getSum))
 import Data.Ord (Ord, compare, (<), (<=), Ordering(..))
 import Data.Semigroup (Semigroup(..))
 import Data.String (IsString(..))
@@ -372,3 +375,25 @@ splitAtPosition !len = \case
       llc = ll <> lc
       len' = subOnRope l len ll
       len'' = subOnLines c len' lc
+
+-- | Length in UTF-8 code units, O(n).
+utf8Length :: Rope -> Word
+utf8Length = getSum . foldMapRope (Sum . TL.utf8Length)
+
+utf8SplitAt :: Word -> Rope -> Maybe (Rope, Rope)
+utf8SplitAt n0 rp = fst <$> go n0 rp
+  where
+    go n Empty = Just ((Empty, Empty), n)
+    go n (Node l c r _ _) = do
+      ((l1, l2), n') <- go n l
+      case () of
+        _ | n' == 0  -> Just ((l1, (l2 |> c) <> r), 0)
+          | n' <= lc -> do
+            (c1, c2) <- TL.utf8SplitAt n' c
+            Just ((l |> c1, c2 <| r), 0)
+          | otherwise -> do
+            let n'' = n' - lc
+            ((r1, r2), n''') <- go n'' r
+            Just (((l |> c) <> r1, r2), n''')
+      where
+        lc = TL.utf8Length c

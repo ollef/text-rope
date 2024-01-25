@@ -66,4 +66,15 @@ testSuite = testGroup "Utf16 Rope"
     \i x -> case Rope.splitAtPosition i x of
       Just{} -> True
       Nothing -> isJust (Rope.splitAtPosition (i <> Lines.Position 0 1) x)
+
+  , testProperty "utf8SplitAt 1" $
+    \i x -> case Rope.utf8SplitAt i x of
+      Just (y, z) -> x === y <> z
+      Nothing -> property True
+  , testProperty "utf8SplitAt 2" $
+    \i x -> case (Rope.utf8SplitAt i x, Lines.utf8SplitAt i (Lines.fromText $ Rope.toText x)) of
+      (Nothing, Nothing) -> property True
+      (Nothing, Just{}) -> counterexample "can split TextLines, but not Rope" False
+      (Just{}, Nothing) -> counterexample "can split Rope, but not TextLines" False
+      (Just (y, z), Just (y', z')) -> Lines.fromText (Rope.toText y) === y' .&&. Lines.fromText (Rope.toText z) === z'
   ]

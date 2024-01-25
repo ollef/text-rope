@@ -19,6 +19,9 @@ module Data.Text.Lines
   , Position(..)
   , lengthAsPosition
   , splitAtPosition
+  -- * UTF-8 code units
+  , utf8Length
+  , utf8SplitAt
   ) where
 
 import Prelude ()

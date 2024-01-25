@@ -24,6 +24,9 @@ module Data.Text.Utf16.Lines
   , Position(..)
   , lengthAsPosition
   , splitAtPosition
+  -- * UTF-8 code units
+  , I.utf8Length
+  , I.utf8SplitAt
   ) where
 
 import Prelude ((+), (-), seq)

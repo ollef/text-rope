@@ -23,6 +23,9 @@ module Data.Text.Lines.Internal
   , Position(..)
   , lengthAsPosition
   , splitAtPosition
+  -- * UTF-8 code units
+  , utf8Length
+  , utf8SplitAt
   -- * Utils
   , textLines
   , binarySearch
@@ -32,10 +35,10 @@ module Data.Text.Lines.Internal
 
 import Prelude ((+), (-), (*), subtract, quot, fromIntegral, seq, error)
 import Control.DeepSeq (NFData, rnf)
-import Data.Bits (toIntegralSized)
+import Data.Bits (toIntegralSized, (.&.))
 import Data.Bool (Bool, otherwise, not)
 import Data.Char (Char)
-import Data.Eq (Eq, (==))
+import Data.Eq (Eq, (==), (/=))
 import Data.Foldable (foldMap)
 import Data.Function (on, (.), ($))
 import Data.Int (Int)
@@ -43,7 +46,7 @@ import Data.List (map, mapAccumL, filter)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe (Maybe(..))
 import Data.Monoid (Monoid(..))
-import Data.Ord (Ord, compare, (<=), (<), (>))
+import Data.Ord (Ord, compare, (<=), (>=), (<), (>))
 import Data.Semigroup (Semigroup(..))
 import Data.String (IsString(..))
 import qualified Data.Text.Array as TA
@@ -345,6 +348,22 @@ splitAtPosition (Position line column) (TextLines (Text arr off len) nls) = (y, 
 --
 splitAt :: HasCallStack => Word -> TextLines -> (TextLines, TextLines)
 splitAt = splitAtPosition . Position 0
+
+utf8Length :: TextLines -> Word
+utf8Length (TextLines (Text _ _ len) _) = intToWord len
+
+utf8SplitAt :: Word -> TextLines -> Maybe (TextLines, TextLines)
+utf8SplitAt i tl@(TextLines (Text arr off len) nls)
+  | i' == 0 = Just (mempty, tl)
+  | i' >= len = Just (tl, mempty)
+  | isFirstCodeUnit (TA.unsafeIndex arr (off + i')) =
+    Just (TextLines (Text arr off i') lnls, TextLines (Text arr (off + i') (len - i')) rnls)
+  | otherwise = Nothing
+  where
+    i' = wordToInt i
+    n = binarySearch nls i'
+    isFirstCodeUnit cu = cu .&. 0xC0 /= 0x80
+    (lnls, rnls) = U.splitAt n nls
 
 -------------------------------------------------------------------------------
 -- Utils
